@@ -19,20 +19,21 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 // ------------ verify JWT -------------
 
-function verifyJWT(req, res, next) {
+function verifyJWT(req, res, next){
     const authHeader = req.headers.authorization;
-    if (!authHeader) {
-        return res.status(401).send({ message: 'unauthorized access' })
+
+    if(!authHeader){
+        return res.status(401).send({message: 'unauthorized access'});
     }
-    const token = authHeader.split(' ')[1]
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (error, decoded) {
-        if (error) {
-            return res.status(403).send({ message: 'Forbidden access' })
+    const token = authHeader.split(' ')[1];
+
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function(err, decoded){
+        if(err){
+            return res.status(403).send({message: 'Forbidden access'});
         }
         req.decoded = decoded;
-        next()
+        next();
     })
-
 }
 
 async function run() {
@@ -45,7 +46,7 @@ async function run() {
         //----------- for sending JWT key to client site --------------> 
         app.post('/jwt', (req, res) => {
             const user = req.body;
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d' })
             res.send({ token })
         })
 
@@ -71,7 +72,7 @@ async function run() {
         app.get('/orders', verifyJWT, async (req, res) => {
 
             const decoded = req.decoded;
-            console.log('inside orders api', decoded);
+            // console.log('inside orders api', decoded);
             if(decoded.email !== req.query.email){
                 return res.status(401).send({ message: 'unauthorized access' })
             }
@@ -87,13 +88,13 @@ async function run() {
             res.send(order);
         })
 
-        app.post('/orders', async (req, res) => {
+        app.post('/orders', verifyJWT, async (req, res) => {
             const order = req.body;
             const result = await orderCollection.insertOne(order);
             res.send(result);
         })
 
-        app.patch('/orders/:id', async (req, res) => {
+        app.patch('/orders/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const status = req.body.status;
             const query = { _id: ObjectId(id) }
@@ -106,7 +107,7 @@ async function run() {
             res.send(result)
         })
 
-        app.delete('/orders/:id', async (req, res) => {
+        app.delete('/orders/:id', verifyJWT, async (req, res) => {
             const id = req.params.id
             const query = { _id: ObjectId(id) }
             const result = await orderCollection.deleteOne(query)
