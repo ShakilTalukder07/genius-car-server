@@ -19,17 +19,17 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 // ------------ verify JWT -------------
 
-function verifyJWT(req, res, next){
+function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
 
-    if(!authHeader){
-        return res.status(401).send({message: 'unauthorized access'});
+    if (!authHeader) {
+        return res.status(401).send({ message: 'unauthorized access' });
     }
     const token = authHeader.split(' ')[1];
 
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function(err, decoded){
-        if(err){
-            return res.status(403).send({message: 'Forbidden access'});
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden access' });
         }
         req.decoded = decoded;
         next();
@@ -46,15 +46,32 @@ async function run() {
         //----------- for sending JWT key to client site --------------> 
         app.post('/jwt', (req, res) => {
             const user = req.body;
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d' })
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '7d' })
             res.send({ token })
         })
 
-
         // -------------- for read data from server ----------------
         app.get('/services', async (req, res) => {
-            const query = {}
-            const cursor = serviceCollection.find(query)
+            const search = req.query.search;
+            // console.log(search);
+            let query = {};
+            if (search.length) {
+                query = {
+                    $text: {
+                        $search: search
+                    }
+                }
+            }
+            // const query = {price : {$lt : 300, $gt : 20} }
+            // const query = {price : { $eq : 20} }
+            // const query = {price : { $gte : 30} }
+            // const query = {price : { $lte : 150} }
+            // const query = {price : { $ne : 150} }
+            // const query = {price : { $in : [25, 150, 225]} }
+            // const query = {price : { $nin : [25, 150, 225]} }
+            // const query = { $and: [ {price : {$gt : 25}}, {price : {$gt : 200}}] }
+            const order = req.query.order === 'asc' ? 1 : -1;
+            const cursor = serviceCollection.find(query).sort({ price: order })
             const services = await cursor.toArray()
             // console.log(services);
             res.send(services)
@@ -73,7 +90,7 @@ async function run() {
 
             const decoded = req.decoded;
             // console.log('inside orders api', decoded);
-            if(decoded.email !== req.query.email){
+            if (decoded.email !== req.query.email) {
                 return res.status(401).send({ message: 'unauthorized access' })
             }
 
@@ -113,7 +130,6 @@ async function run() {
             const result = await orderCollection.deleteOne(query)
             res.send(result)
         })
-
 
     }
     finally {
